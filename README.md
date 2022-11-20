@@ -1,9 +1,8 @@
 # Keys
 
 This repo provides keys, certificates and various other artifacts required to support
-secure, unattended boot of systems.
-
-The directory, "snakeoil", contains keys and certificates for demo purposes only.
+secure, unattended boot of systems.  These are distributed for demonstration
+purposes only.
 
 The keypairs are RSA with 2048 bit private keys.
     - manifestCA: contains the private key and certificate for the rootCA that is
