@@ -5,14 +5,15 @@ secure, unattended boot of systems.  These are distributed for demonstration
 purposes only.
 
 The keypairs are RSA with 2048 bit private keys.
-    - manifestCA: contains the private key and self-signed certificate for the root CA
+    - manifestCA: contains the private key and self-signed certificate for the rootCA
       that is used to sign product manifest certificates. A product manifest keypair and
       certificate are used to sign and verify the manifest yaml file for a product.
 
     - manifest: contains a sample private key and signed certificate for a product's
       manifest. The certificate is signed by the manifestCA, establishing a chain of
       trust. The product's uuid is included into the CN of the certificate. The
-      private key is used to sign the product's manifest.
+      private key is used to sign the product's manifest and the certificate is
+      used to verify it.
 
     - tpmpol-admin: contains keypair and certificate used to sign and verify
       TPM EA Policy. This particular policy is used for access to the TPM Password
