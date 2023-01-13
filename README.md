@@ -5,7 +5,8 @@ secure, unattended boot of systems.  These are distributed for demonstration
 purposes only.
 
 The keypairs are RSA with 2048 bit private keys.
-    - manifestCA: contains the private key and self-signed certificate for the rootCA
+
+    - manifest-ca: contains the private key and self-signed certificate for the rootCA
       that is used to sign product manifest certificates. A product manifest keypair and
       certificate are used to sign and verify the manifest yaml file for a product.
 
