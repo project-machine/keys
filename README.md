@@ -27,6 +27,10 @@ The keypairs are RSA with 2048 bit private keys.
     - uefi-db: contains the keypair, guid, and certificate to sign and verify
       UEFI applications. The certificate is stored in the UEFI DB.
 
+    - uefi-pk: contains keypair, guid and cert for UEFI platform key.
+
+    - uefi-kek: contains keypair, guid, and cert for UEFI Key Exchange Key.
+
     - uki-limited: contains the keypair, guid, and certificate to sign and verify
       UKIs signed with the "limited" key. This key signs and verifies special
       purpose UKIs and UEFI binaries. It does not grant privileged access to the
