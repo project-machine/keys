@@ -43,3 +43,9 @@ The keypairs are RSA with 2048 bit private keys.
     - uki-tpm: contains the keypair, guid, and certificate to sign and verify UKIs
       signed with the "tpm" key. A UKI signed with the "tpm" key permit access to
       the TPM password for administration.
+
+# PRs
+
+Any changes to the layout here must be accompanied by a corresponding change
+to (trust)[https://github.com/project-machine/trust] to effect the same change
+in keysets it generates.
