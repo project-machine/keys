@@ -1,0 +1,208 @@
+#!/bin/bash
+# shellcheck disable=2166,2015,2039
+
+VERBOSITY=0
+TEMP_D=""
+
+stderr() { echo "$@" 1>&2; }
+fail() { local r=$?;  [ $r -eq 0 ] && r=1; failrc "$r" "$@"; }
+failrc() { local r="$1"; shift; [ $# -eq 0 ] || stderr "$@"; exit "$r"; }
+
+Usage() {
+    cat <<EOF
+Usage: ${0##*/} [ options ] <<ARGUMENTS>>
+
+   <<SUMMARY HERE>>
+
+   options:
+    -v | --verbose     increase verbosity.
+EOF
+}
+
+bad_Usage() { Usage 1>&2; [ $# -eq 0 ] || stderr "$@"; return 1; }
+cleanup() {
+    [ -z "${TEMP_D}" -o ! -d "${TEMP_D}" ] || rm -Rf "${TEMP_D}"
+}
+
+debug() {
+    local level=${1}; shift;
+    [ "${level}" -gt "${VERBOSITY}" ] && return
+    stderr "${@}"
+}
+
+rq() {
+    local r="" out="" cmd=""
+    cmd="$*"
+    if command -v shell-quote >/dev/null 2>&1; then
+        cmd=$(shell-quote "$@") ||
+            { stderr "shell-quote failed"; return 254; }
+    fi
+    stderr "execute: $cmd"
+    out=$("$@" 2>&1 </dev/null) && return 0
+    r=$?
+    stderr "$out"
+    stderr "failed [$r]"
+    return "$r"
+}
+
+gen_key() {
+    local out="$1"
+    rq openssl genrsa -out "$out" 2048 ||
+        fail "failed to generate key into $out"
+}
+
+gen_request() {
+    # generate request, creates base-key.pem and base-req.pem
+    local subj="$1" key="$2" out="$3"
+    rq openssl req \
+        -new \
+        -key "$key" \
+        -nodes \
+        -out "$out" \
+        -subj "/$subj/" ||
+        fail "failed generating req for $subj"
+}
+
+gen_ca() {
+    local subj="$1" key="$2" out="$3"
+    rq openssl req \
+        -new \
+        -key "$key" \
+        -nodes \
+        -out "$out" \
+        -subj "/$subj/" \
+        -days $((365*20)) \
+        -x509 ||
+        fail "failed generating CA"
+}
+
+sign_request() {
+    local req="$1" cert="$2" key="$3" out="$4" extensions="$5"
+    rq openssl x509 \
+        -req \
+        -days $((365*20)) \
+        -sha256 \
+        -in "$req" \
+        -CA "$cert" \
+        -CAkey "$key" \
+        -CAcreateserial \
+        -out "$out" \
+        ${extensions:+-extfile "${extensions}"} ||
+        fail "failed signing request from $req"
+}
+
+do_x509() {
+    local outd="${1%/}" guid="$2"
+    shift 2
+    local o="$1" ou="$2" cn="$3"
+	rm -Rf "$outd"
+    mkdir -p "$outd" || { error "failed to create $outd"; return 1; }
+    if [ -z "$guid" ]; then
+        guid=$(uuidgen) ||
+            { stderr "failed to gen uuid"; return 1; }
+    fi
+    gen_key "$outd/privkey.pem" || return
+    gen_ca "O=$o/OU=$ou/CN=$cn" "$outd/privkey.pem" "$outd/cert.pem" || return
+    printf "%s\n" "$guid" > "$outd/guid"
+}
+
+# manifest-csr | manifest/default        | manifest-ca/ , manifest     | bc564363-2a8e-44fe-bb0e-54c7f9988ecf
+do_manifestcsr() {
+    local outd="${1%/}" guid="$2" cad="$3" name="${4:-manifest}"
+    if [ -z "$guid" ]; then
+        guid=$(uuidgen) ||
+            { stderr "failed to gen uuid"; return 1; }
+    fi
+    gen_key "$outd/privkey.pem" || return
+    gen_request "CN=manifest PRODUCT:$guid" \
+        "$outd/privkey.pem" "$outd/csr.pem" || return
+    sign_request "$outd/csr.pem" \
+        "$cad/cert.pem" "$cad/privkey.pem" "$outd/cert.pem" ||
+        return
+    rq rm -f "$outd/csr.pem"
+}
+
+#sudi-csr     | manifest/default/sudi   | sudi-ca/ ,     manifest/default                               | 4cc76b82-948c-44b8-948c-1cc9a7d460d0
+# sudi#     CN = 4cc76b82-948c-44b8-948c-1cc9a7d460d0, serialNumber = PID:bc564363-2a8e-44fe-bb0e-54c7f9988ecf SN:4cc76b82-948c-44b8-948c-1cc9a7d460d0
+do_sudicsr() {
+    local outd="${1%/}" guid="$2" cad="$3" name="${4}"
+    local soutd=""
+    if [ -z "$guid" ]; then
+        guid=$(uuidgen) ||
+            { stderr "failed to gen uuid"; return 1; }
+    fi
+    local cadguid=""
+    cadguid=$(cat "$cad/guid") || {
+        stderr "failed to read guid from $outd/guid"
+        return 1
+    }
+    soutd="$outd/$guid"
+    rm -Rf "$soutd" && mkdir "$soutd" || return
+    gen_key "$soutd/privkey.pem" || return
+    #    Issuer: O = Cisco, OU = PuzzleOS Machine Project snakeoil, CN = Sudi rootCA
+    #    Subject: CN = 4cc76b82-948c-44b8-948c-1cc9a7d460d0, serialNumber = PID:bc564363-2a8e-44fe-bb0e-54c7f9988ecf SN:4cc76b82-948c-44b8-948c-1cc9a7d460d0
+    gen_request "CN=$guid/SerialNumber=PID:$cadguid SN:$guid" \
+        "$soutd/privkey.pem" "$soutd/csr.pem" || return
+    sign_request "$soutd/csr.pem" \
+        "$cad/cert.pem" "$cad/privkey.pem" "$soutd/cert.pem" ||
+        return
+    rq rm -f "$soutd/csr.pem"
+    return 0
+}
+
+main() {
+    local sopts="hv"
+    local lopts="help,verbose"
+    local name="${0##*/}" input=""
+    out=$(getopt --name "$name" \
+        --options "$sopts" --long "$lopts" -- "$@") &&
+        eval set -- "$out" ||
+        { bad_Usage; return; }
+
+    local cur="" next="" output=""
+
+    while [ $# -ne 0 ]; do
+        cur="$1"; next="$2";
+        case "$cur" in
+            -h|--help) Usage ; exit 0;;
+            -v|--verbose) VERBOSITY=$((VERBOSITY+1));;
+            --) shift; break;;
+        esac
+        shift;
+    done
+
+    [ $# -ne 0 ] || { bad_Usage "must provide input"; return; }
+
+    TEMP_D=$(mktemp -d "${TMPDIR:-/tmp}/${0##*/}.XXXXXX") ||
+        fail "failed to make tempdir"
+    trap cleanup EXIT
+
+    input="$1"
+    set --
+    OIFS="$IFS"
+    while read line; do
+        [ "${line#"#"*}" = "$line" ] || continue
+        line=$(echo "$line" | sed 's/[ ]*|[ ]*/|/g')
+        IFS="|" ; set -- $line ; IFS="$OIFS"
+        mode="$1"
+        out="$2"
+        fields="$3"
+        guid="$4"
+        fields=$(echo "$fields" | sed 's/[ ]*,[ ]*/,/g')
+        IFS=","; set -- $fields; IFS="$OIFS"
+        case "$mode" in
+            x509-guid|x509)
+                do_x509 "$out" "$guid" "$@" || fail;;
+            manifest-csr)
+                do_manifestcsr "$out" "$guid" "$@" || fail;;
+            sudi-csr)
+                do_sudicsr "$out" "$guid" "$@" || fail
+                ;;
+            *) fail "unknown mode $mode"
+                ;;
+        esac
+    done < "$input"
+}
+
+main "$@"
+# vi: ts=4 expandtab
