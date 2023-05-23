@@ -1,0 +1,16 @@
+# dir   | type      |  O / OU / CN | guid
+# manifest-csr are signed by manifest-ca
+x509-guid    | uefi-pk/                | Cisco , PuzzleOS Machine Project snakeoil , UEFI PK           | 13ef5459-35fe-49aa-91ab-a6b0391f0a2a
+x509-guid    | uefi-kek/               | Cisco , PuzzleOS Machine Project snakeoil , UEFI KEK          | 55c5bba5-e3ea-4594-b53b-6308ed23c4a9
+x509-guid    | uefi-db/                | Cisco , PuzzleOS Machine Project snakeoil , UEFI DB           | 326aa6de-a82d-4fd7-8015-2db804aea8e7
+x509-guid    | uki-limited/            | Cisco , PuzzleOS Machine Project snakeoil , UKI Limited       | c31227a6-4f70-4525-9348-62c18d5c0240
+x509-guid    | uki-production/         | Cisco , PuzzleOS Machine Project snakeoil , UKI Production    | 7b42b67c-4fc9-41e9-ae7a-b8d9134835ad
+x509-guid    | uki-tpm/                | Cisco , PuzzleOS Machine Project snakeoil , UKI TPM           | 617e599e-4f07-47fa-9504-fe4ae1616c83
+x509         | tpm-admin/              | Cisco , PuzzleOS Machine Project snakeoil , TPM EAPolicy LUKS | 
+x509         | tpm-luks/               | Cisco , PuzzleOS Machine Project snakeoil , TPM EAPolicy LUKS | 
+x509         | manifest-ca/            | Cisco , PuzzleOS Machine Project snakeoil , Manifest rootCA   | 
+x509         | sudi-ca/                | Cisco , PuzzleOS Machine Project snakeoil , Sudi rootCA       | 
+manifest-csr | manifest/default        | manifest-ca/ , manifest                                       | bc564363-2a8e-44fe-bb0e-54c7f9988ecf
+sudi-csr     | manifest/default/sudi   | sudi-ca/ ,     manifest/default                               | 4cc76b82-948c-44b8-948c-1cc9a7d460d0
+# manifest# CN = manifest PRODUCT:bc564363-2a8e-44fe-bb0e-54c7f9988ecf
+# sudi#     CN = 4cc76b82-948c-44b8-948c-1cc9a7d460d0, serialNumber = PID:bc564363-2a8e-44fe-bb0e-54c7f9988ecf SN:4cc76b82-948c-44b8-948c-1cc9a7d460d0
